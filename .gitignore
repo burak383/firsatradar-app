@@ -1,0 +1,11 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+*.jks
+
+# Eski/kullanilmayan backend kopyasi (gercek backend firsatradar-render
+# reposunda) -- icinde yerel test veritabani (backend/data/*.db) var,
+# yanlislikla commit'lenmesin diye tamamen disarida tutuluyor.
+backend/

@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "FırsatRadar",
+    "slug": "firsatradar",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "icon": "./assets/icon.png",
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-9017194698663463~1025154044",
+          "iosAppId": "ca-app-pub-9017194698663463~7934954970"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "newArchEnabled": true,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36
+          },
+          "ios": {
+            "newArchEnabled": true
+          }
+        }
+      ],
+      "./plugins/withKotlinMetadataSkip.js"
+    ],
+    "android": {
+      "package": "com.firsatradar.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B0F17"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.firsatradar.app",
+      "usesAppleSignIn": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "521837f4-f226-4e9c-8ab7-4900932ba96f"
+      }
+    },
+    "owner": "burak38"
+  }
+}

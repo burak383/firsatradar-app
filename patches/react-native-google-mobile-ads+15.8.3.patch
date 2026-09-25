@@ -1,0 +1,28 @@
+diff --git a/node_modules/react-native-google-mobile-ads/android/build.gradle b/node_modules/react-native-google-mobile-ads/android/build.gradle
+index 8a31e69..3a33e6b 100644
+--- a/node_modules/react-native-google-mobile-ads/android/build.gradle
++++ b/node_modules/react-native-google-mobile-ads/android/build.gradle
+@@ -34,6 +34,18 @@ plugins {
+ }
+ apply plugin: 'kotlin-android'
+ 
++// PATCH (firsatradar): Google'in play-services-ads AAR'i Kotlin 2.1 metadata'siyla
++// derlenmis, ama bu modul + projenin geri kalani Kotlin 1.9.x kullaniyor. Projenin
++// tamamini Kotlin 2.x'e zorlamak react-native-gradle-plugin'in kendi ic Kotlin
++// surumuyle catisiyor (ayri bir "included build"), o yuzden onun yerine SADECE bu
++// modulun Kotlin derleyicisine metadata surum kontrolunu atlatan bayragi ekliyoruz --
++// Kotlin'in kendi hata mesajinin onerdigi cozum bu.
++tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
++  kotlinOptions {
++    freeCompilerArgs += ["-Xskip-metadata-version-check"]
++  }
++}
++
+ def packageJson = PackageJson.getForProject(project)
+ def googleMobileAdsVersion = packageJson['sdkVersions']['android']['googleMobileAds']
+ def googleUmpVersion = packageJson['sdkVersions']['android']['googleUmp']
+@@ -143,4 +155,3 @@ ReactNative.shared.applyPackageVersion()
+ ReactNative.shared.applyDefaultExcludes()
+ ReactNative.module.applyAndroidVersions()
+ ReactNative.module.applyReactNativeDependency("api")
+-
