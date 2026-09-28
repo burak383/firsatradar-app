@@ -58,7 +58,12 @@ export default function App() {
   // Urun detayina gecis (interstitial) reklami -- her acilista degil,
   // belirli araliklarla gosterilir (bkz. ads.tsx). Web'de ads.web.tsx'in
   // no-op suru kullanilir, hicbir sey gostermez.
-  const { maybeShow: maybeShowInterstitial } = useInterstitialAd(3);
+  // GECICI TANI DEGISIKLIGI: reklamin hic cikmadigi bildirildigi icin test
+  // kolayligi amaciyla "her 3 urunde bir" yerine "her urunde" gostermeye
+  // ceviriyoruz -- boylece sayaç mi yoksa AdMob'un kendisi mi (no-fill)
+  // sorunlu net anlasilir. Test edip sonuc netlesince production icin
+  // tekrar 3'e (ya da istenen baska bir degere) dondurulmeli.
+  const { maybeShow: maybeShowInterstitial } = useInterstitialAd(1);
 
   useEffect(() => {
     initAds();

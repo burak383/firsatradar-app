@@ -49,7 +49,10 @@
     },
     "ios": {
       "bundleIdentifier": "com.firsatradar.app",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "extra": {
       "eas": {

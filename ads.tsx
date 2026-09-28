@@ -69,10 +69,13 @@ export function initAds() {
   initialized = true;
   mobileAds()
     .initialize()
-    .catch(() => {
+    .then((adapterStatuses) => console.log('[AdMob] SDK baslatildi:', adapterStatuses))
+    .catch((error) => {
       // Reklam altyapisi yuklenemezse (ornegin cihazda Google Play
       // Services yoksa) sessizce vazgec -- uygulamanin geri kalani
       // reklamsiz calismaya devam etmeli, hicbir sekilde kilitlenmemeli.
+      // Ama tanı icin hatayi yine de logluyoruz.
+      console.warn('[AdMob] SDK baslatilamadi:', error);
     });
 }
 
@@ -87,6 +90,17 @@ export function AdBanner({ style }: { style?: ViewStyle }) {
         unitId={bannerAdUnitId}
         size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
         requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+        // GECICI TANI LOGLARI: reklam hic gorunmuyor sikayeti icin eklendi.
+        // BannerAd'in kendisi hata durumunda hicbir sey render etmiyor
+        // (bos alan kalir), yani "neden gorunmuyor"u anlamak icin
+        // AdMob'un dondurdugu GERCEK hata kodunu logcat'e yazdiriyoruz.
+        // adb logcat *:S ReactNativeJS:V ile bu loglari canli takip edebilirsin
+        // (en sik gorulecek kod 3/"no-fill" -- AdMob hesabi/uygulamasi henuz
+        // onaylanmadiysa veya envanter bulunamadiysa budur, kod hatasi degildir).
+        onAdLoaded={() => console.log('[AdMob] Banner yuklendi ve gosteriliyor')}
+        onAdFailedToLoad={(error) =>
+          console.warn('[AdMob] Banner YUKLENEMEDI:', error?.code, error?.message)
+        }
       />
     </View>
   );
@@ -119,7 +133,10 @@ export function useInterstitialAd(showEveryNth = 3) {
       setLoaded(false);
       load(); // kapanir kapanmaz bir sonraki gosterim icin yenisini yukle
     });
-    const unsubError = ad.addAdEventListener(AdEventType.ERROR, () => setLoaded(false));
+    const unsubError = ad.addAdEventListener(AdEventType.ERROR, (error) => {
+      setLoaded(false);
+      console.warn('[AdMob] Gecis reklami YUKLENEMEDI:', (error as any)?.code, (error as any)?.message);
+    });
     ad.load();
     adRef.current = ad;
     return () => {
