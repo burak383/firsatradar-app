@@ -1,0 +1,58 @@
+name: Android Build (APK)
+ 
+# Bu workflow her calistiginda `npx expo prebuild` ile android/ klasorunu
+# app.json'daki GUNCEL konfigurasyondan (FCM/google-services.json, AdMob,
+# Kotlin/fmt fix plugin'leri) SIFIRDAN yeniden uretir -- repodaki android/
+# klasorune degil, her zaman app.json'a guveniriz. Boylece EAS Build'in
+# yaptigi seyin ayniyla, ucretsiz ve hizli bir sekilde GitHub Actions
+# uzerinde bir APK elde ederiz.
+#
+# Cikan APK, projenin varsayilan debug keystore'uyla imzali (android/app/
+# build.gradle'daki "release" build type'i su an signingConfigs.debug
+# kullaniyor) -- yani Play Store'a yuklenemez ama telefona direkt kurulup
+# (sideload) test edilebilir. Gercek/Play Store imzali bir APK/AAB icin
+# hala `eas build` kullanilmali (ya da buraya gercek keystore'u GitHub
+# Secrets olarak eklemek gerekir).
+ 
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main, master]
+ 
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu al
+        uses: actions/checkout@v4
+ 
+      - name: Node.js kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+ 
+      - name: Java (Temurin 17) kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+ 
+      - name: Bagimliliklari yukle
+        run: npm ci
+ 
+      - name: Android native projesini olustur (expo prebuild)
+        run: npx expo prebuild --platform android --clean
+ 
+      - name: Gradle ile APK derle
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+ 
+      - name: APK'yi Actions ciktisi olarak yukle
+        uses: actions/upload-artifact@v4
+        with:
+          name: firsatradar-android-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
