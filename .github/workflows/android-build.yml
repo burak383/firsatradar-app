@@ -44,6 +44,14 @@ jobs:
       - name: Android native projesini olustur (expo prebuild)
         run: npx expo prebuild --platform android --clean
  
+      # Gradle bagimliliklarini cache'ler (build'leri hizlandirir) ve
+      # Maven Central'a atilan istek sayisini azaltir -- runner'in paylasimli
+      # IP'si gecici olarak "403 Forbidden" ile bloklanirsa (Maven Central'in
+      # asiri istek korumasi, nadir ama olabiliyor) sonraki calistirmalarda
+      # cache sayesinde bu riski dusurur.
+      - name: Gradle setup (cache)
+        uses: gradle/actions/setup-gradle@v4
+ 
       - name: Gradle ile APK derle
         working-directory: android
         run: |
