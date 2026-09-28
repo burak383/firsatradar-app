@@ -1,0 +1,110 @@
+name: Android Release (AAB - Play Store)
+ 
+# Bu workflow, Play Store'a yuklenebilecek GERCEK imzali bir .aab (Android
+# App Bundle) uretir. android-build.yml'deki hizli/debug-imzali APK'dan
+# FARKLI olarak, gercek imzalama anahtarini (EAS'in olusturdugu keystore)
+# GitHub Secrets'tan okuyup kullanir -- bu yuzden SADECE ELLE tetikleniyor
+# (workflow_dispatch), her push'ta degil; hem gereksiz calismasin hem de
+# secrets eksikse her push'ta kirmizi X gormeyelim.
+#
+# ON KOSUL -- calismadan once su 4 GitHub Secret'i eklemis olman lazim
+# (repo -> Settings -> Secrets and variables -> Actions -> New repository secret):
+#   ANDROID_KEYSTORE_BASE64   -> @burak38__firsatradar.jks dosyasinin base64 hali
+#   ANDROID_KEYSTORE_PASSWORD -> keystore (store) sifresi
+#   ANDROID_KEY_ALIAS         -> key alias
+#   ANDROID_KEY_PASSWORD      -> key sifresi
+# Bu degerleri `eas credentials` -> Android -> production -> "Keystore:
+# Manage everything..." -> "Download existing keystore" ile gorebilirsin
+# (terminale yazdirir). Base64'e cevirme komutu icin sohbetteki talimata bak.
+ 
+on:
+  workflow_dispatch: {}
+ 
+jobs:
+  build-aab:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu al
+        uses: actions/checkout@v4
+ 
+      - name: Node.js kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+ 
+      - name: Java (Temurin 17) kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+ 
+      - name: Bagimliliklari yukle
+        run: npm ci
+ 
+      - name: Android native projesini olustur (expo prebuild)
+        run: npx expo prebuild --platform android --clean
+ 
+      - name: Gradle setup (cache)
+        uses: gradle/actions/setup-gradle@v4
+ 
+      - name: Gercek keystore'u geri yukle (secret'tan)
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+          if [ ! -s android/app/release.keystore ]; then
+            echo "HATA: ANDROID_KEYSTORE_BASE64 secret'i bos veya eksik. Repo Settings > Secrets and variables > Actions altindan ekle." >&2
+            exit 1
+          fi
+ 
+      - name: build.gradle'a release imzalama ayarini ekle
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = 'android/app/build.gradle';
+          let c = fs.readFileSync(path, 'utf8');
+ 
+          const oldSigningConfigs = \`    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }\`;
+          const newSigningConfigs = \`    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+        release {
+            storeFile file('release.keystore')
+            storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+            keyAlias System.getenv('ANDROID_KEY_ALIAS')
+            keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+        }
+    }\`;
+          if (!c.includes(oldSigningConfigs)) { console.error('HATA: signingConfigs blogu beklenen formatta degil, patch uygulanamadi.'); process.exit(1); }
+          c = c.replace(oldSigningConfigs, newSigningConfigs);
+          c = c.replace('signingConfig signingConfigs.debug\n            shrinkResources', 'signingConfig signingConfigs.release\n            shrinkResources');
+          fs.writeFileSync(path, c);
+          console.log('build.gradle basariyla guncellendi.');
+          "
+ 
+      - name: Gradle ile AAB derle
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease --no-daemon
+ 
+      - name: AAB'yi Actions ciktisi olarak yukle
+        uses: actions/upload-artifact@v4
+        with:
+          name: firsatradar-release-aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
