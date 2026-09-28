@@ -1,5 +1,5 @@
 name: Android Release (AAB - Play Store)
- 
+
 # Bu workflow, Play Store'a yuklenebilecek GERCEK imzali bir .aab (Android
 # App Bundle) uretir. android-build.yml'deki hizli/debug-imzali APK'dan
 # FARKLI olarak, gercek imzalama anahtarini (EAS'in olusturdugu keystore)
@@ -19,38 +19,38 @@ name: Android Release (AAB - Play Store)
 #
 # build.gradle yama mantigi ayri bir dosyada: scripts/patch-android-signing.js
 # (YAML blok-skalasi girinti kisitlarindan kacinmak icin -- bkz. o dosyadaki aciklama).
- 
+
 on:
   workflow_dispatch: {}
- 
+
 jobs:
   build-aab:
     runs-on: ubuntu-latest
     steps:
       - name: Kodu al
         uses: actions/checkout@v4
- 
+
       - name: Node.js kur
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
- 
+
       - name: Java (Temurin 17) kur
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
- 
+
       - name: Bagimliliklari yukle
         run: npm ci
- 
+
       - name: Android native projesini olustur (expo prebuild)
         run: npx expo prebuild --platform android --clean
- 
+
       - name: Gradle setup (cache)
         uses: gradle/actions/setup-gradle@v4
- 
+
       - name: Gercek keystore'u geri yukle (secret'tan)
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
@@ -58,10 +58,10 @@ jobs:
             echo "HATA: ANDROID_KEYSTORE_BASE64 secret'i bos veya eksik. Repo Settings > Secrets and variables > Actions altindan ekle." >&2
             exit 1
           fi
- 
+
       - name: build.gradle'a release imzalama ayarini ekle
         run: node scripts/patch-android-signing.js
- 
+
       - name: Gradle ile AAB derle
         working-directory: android
         env:
@@ -71,7 +71,7 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew bundleRelease --no-daemon
- 
+
       - name: AAB'yi Actions ciktisi olarak yukle
         uses: actions/upload-artifact@v4
         with:
