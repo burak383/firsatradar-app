@@ -309,19 +309,6 @@ export async function updatePreferences(
   return preferences;
 }
 
-// Push bildirim jetonunu (Expo push token) backend'e kaydeder -- bkz.
-// notifications.ts (initNotifications) ve backend/routes/push-tokens.js.
-// Giris yapmissa jeton otomatik olarak hesaba (user_id), yapmamissa cihaza
-// (device_id) baglanir -- request()'in ekledigi Authorization basligi
-// uzerinden backend bunu kendisi ayirt eder.
-export async function registerPushToken(token: string): Promise<void> {
-  const deviceId = await getDeviceId();
-  await request<void>('/push-tokens', {
-    method: 'POST',
-    body: JSON.stringify({ token, deviceId }),
-  });
-}
-
 // --- Bicimlendirme yardimcilari -------------------------------------------
 
 export function formatPrice(amount: number | null | undefined, currency = 'TRY'): string {
