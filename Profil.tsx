@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -17,6 +18,7 @@ import {
   AuthUser,
   Category,
   Preferences,
+  deleteAccount,
   getAlarms,
   getCategories,
   getCurrentUser,
@@ -173,6 +175,38 @@ export default function ProfileScreen({
       onOpenAuth?.();
     }
   }, [user, onOpenAuth, load]);
+
+  const [deleting, setDeleting] = useState(false);
+
+  // App Store 5.1.1(v): hesap olusturulabiliyorsa uygulama icinden hesap
+  // silme de sunulmali. Yanlislikla silmeyi onlemek icin onay penceresi var.
+  const handleDeleteAccountPress = useCallback(() => {
+    if (!user || deleting) return;
+    Alert.alert(
+      'Hesabı sil',
+      'Hesabın, fiyat alarmların ve tercihlerin kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Hesabı kalıcı olarak sil',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteAccount();
+              setUser(null);
+              Alert.alert('Hesabın silindi', 'Hesabın ve tüm verilerin kalıcı olarak silindi.');
+              load();
+            } catch (e: any) {
+              Alert.alert('Hesap silinemedi', e?.message || 'Bir sorun oluştu, lütfen tekrar dene.');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [user, deleting, load]);
 
   const handleEditProfilePress = useCallback(() => {
     if (user) {
@@ -426,6 +460,19 @@ export default function ProfileScreen({
                 {user ? 'Çıkış yap' : 'Giriş yap / Hesap oluştur'}
               </Text>
             </Pressable>
+
+            {user ? (
+              <Pressable
+                style={[styles.deleteAccountButton, deleting && { opacity: 0.6 }]}
+                onPress={handleDeleteAccountPress}
+                disabled={deleting}
+              >
+                <Icon name="trash-can-outline" size={18} color={colors.destructive} />
+                <Text style={styles.deleteAccountText}>
+                  {deleting ? 'Siliniyor…' : 'Hesabı sil'}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         </ScrollView>
 
@@ -921,6 +968,23 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 16,
     backgroundColor: colors.secondary,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: colors.destructive,
+    borderRadius: 16,
+  },
+  deleteAccountText: {
+    color: colors.destructive,
+    fontFamily: fonts.body,
+    fontSize: 14,
+    fontWeight: '700',
   },
   logoutText: {
     color: colors.secondaryForeground,

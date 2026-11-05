@@ -166,6 +166,14 @@ export async function logout(): Promise<void> {
   }
 }
 
+// Hesabi ve hesaba bagli tum verileri (alarmlar, tercihler, bildirim
+// jetonlari) kalici olarak siler (bkz. backend/routes/auth.js, DELETE
+// /auth/account), ardindan yerel oturumu da temizler.
+export async function deleteAccount(): Promise<void> {
+  await request<{ ok: boolean }>('/auth/account', { method: 'DELETE' });
+  await logout();
+}
+
 export async function register(email: string, password: string): Promise<{ user: AuthUser }> {
   const deviceId = await getDeviceId();
   const result = await request<{ token: string; user: AuthUser }>('/auth/register', {
@@ -200,15 +208,33 @@ export async function appleLogin(identityToken: string): Promise<{ user: AuthUse
   return { user: result.user };
 }
 
+// Render ucretsiz planda bosta kalan sunucu 30-60 sn'de uyaniyor; yanit hic
+// gelmezse kullanici sonsuza dek bekletilmesin (ve uygulama "yanit vermiyor"
+// gibi gorunmesin) diye istekleri zaman asimina ugratiyoruz.
+const REQUEST_TIMEOUT_MS = 45000;
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   await loadAuthFromStorage();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (cachedAuthToken) headers.Authorization = `Bearer ${cachedAuthToken}`;
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: { ...headers, ...((options?.headers as Record<string, string>) || {}) },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: { ...headers, ...((options?.headers as Record<string, string>) || {}) },
+    });
+  } catch (e: any) {
+    if (e?.name === 'AbortError') {
+      throw new Error('Sunucu yanıt vermedi. İnternet bağlantını kontrol edip tekrar dene.');
+    }
+    throw new Error('Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.');
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     let message = `İstek başarısız oldu (${res.status})`;
     try {
