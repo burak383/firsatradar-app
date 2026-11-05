@@ -35,9 +35,27 @@ export type Deal = {
   verifiedMinutesAgo: number | null;
 };
 
+// Backend'in (helpers.js -> computePriceAnalysis) gozlemledigi fiyat
+// gecmisinden urettigi "gercek indirim kontrolu". Eski bir backend surumu
+// bu alani donmeyebilir, bu yuzden DealDetail'de opsiyonel.
+export type PriceAnalysis = {
+  windowDays: number;
+  observationCount: number;
+  trackedDays: number | null;
+  minPrice: number | null;
+  maxPrice: number | null;
+  avgPrice: number | null;
+  pctVsAverage: number | null;
+  positionInRange: number | null;
+  verdict: 'real_deal' | 'normal' | 'above_average' | 'insufficient';
+  confidence: 'ok' | 'low';
+  claimedOldPriceUnverified: boolean;
+};
+
 export type DealDetail = Deal & {
   couponCode: string | null;
   priceHistory: { price: number; checkedAt: string }[];
+  priceAnalysis?: PriceAnalysis;
   activeAlarmCount: number;
 };
 
@@ -333,6 +351,19 @@ export async function updatePreferences(
     body: JSON.stringify({ ...patch, deviceId }),
   });
   return preferences;
+}
+
+// Push bildirim jetonunu (Expo push token) backend'e kaydeder -- bkz.
+// notifications.ts (initNotifications) ve backend/routes/push-tokens.js.
+// Giris yapmissa jeton otomatik olarak hesaba (user_id), yapmamissa cihaza
+// (device_id) baglanir -- request()'in ekledigi Authorization basligi
+// uzerinden backend bunu kendisi ayirt eder.
+export async function registerPushToken(token: string): Promise<void> {
+  const deviceId = await getDeviceId();
+  await request<void>('/push-tokens', {
+    method: 'POST',
+    body: JSON.stringify({ token, deviceId }),
+  });
 }
 
 // --- Bicimlendirme yardimcilari -------------------------------------------

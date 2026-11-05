@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { BackHandler, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import FirsatRadarScreen from './KeFet';
@@ -58,7 +58,12 @@ export default function App() {
   // Urun detayina gecis (interstitial) reklami -- her acilista degil,
   // belirli araliklarla gosterilir (bkz. ads.tsx). Web'de ads.web.tsx'in
   // no-op suru kullanilir, hicbir sey gostermez.
-  const { maybeShow: maybeShowInterstitial } = useInterstitialAd(3);
+  // GECICI TANI DEGISIKLIGI: reklamin hic cikmadigi bildirildigi icin test
+  // kolayligi amaciyla "her 3 urunde bir" yerine "her urunde" gostermeye
+  // ceviriyoruz -- boylece sayaç mi yoksa AdMob'un kendisi mi (no-fill)
+  // sorunlu net anlasilir. Test edip sonuc netlesince production icin
+  // tekrar 3'e (ya da istenen baska bir degere) dondurulmeli.
+  const { maybeShow: maybeShowInterstitial } = useInterstitialAd(1);
 
   useEffect(() => {
     initAds();
@@ -112,6 +117,51 @@ export default function App() {
 
   const Active = SCREENS.find((s) => s.key === active)!.Component;
 
+  // Urun detayi / giris / tercihler ekranlari aciksa alttaki sekme ekrani
+  // KALDIRILMIYOR, sadece gizleniyor (display: none). Eskiden bu ekranlar
+  // acilinca sekme ekrani unmount oluyordu; geri donuldugunde ekranin kendi
+  // ic state'i (ornegin Kategoriler'de icinde bulunulan kategori, Arama'da
+  // yazilan sorgu, KeFet'te secili magaza filtresi) sifirlaniyor ve
+  // kullanici bulundugu yerden "disari atiliyordu".
+  const overlayOpen = showAuth || showPreferences || detailDealId != null;
+
+  // Ekranlar (ör. Kategoriler) kendi ic "geri" davranisini buraya kaydeder:
+  // handler true donerse geri tusu o ekranda tuketildi demektir (ornegin
+  // kategori listesinden kategori izgarasina donuldu).
+  const screenBackRef = useRef<(() => boolean) | null>(null);
+  const registerBackHandler = useCallback((handler: (() => boolean) | null) => {
+    screenBackRef.current = handler;
+  }, []);
+
+  // Android donanim/sistem geri tusu. Oncelik sirasi: ust katmanlar
+  // (giris -> tercihler -> urun detayi), sonra ekranin kendi ic geri
+  // adimi, sonra ana sekmeye (Keşfet) donus; en son Keşfet'te iken
+  // uygulamadan cik (false donunce sistem varsayilani calisir).
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (showAuth) {
+        setShowAuth(false);
+        return true;
+      }
+      if (showPreferences) {
+        closePreferences();
+        return true;
+      }
+      if (detailDealId != null) {
+        setDetailDealId(null);
+        return true;
+      }
+      if (screenBackRef.current && screenBackRef.current()) return true;
+      if (active !== SCREENS[0].key) {
+        setActive(SCREENS[0].key);
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAuth, showPreferences, detailDealId, active]);
+
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
@@ -137,13 +187,7 @@ export default function App() {
         ))}
       </SafeAreaView>
       <View style={styles.screenArea}>
-        {showAuth ? (
-          <AuthScreen onClose={closeAuth} onAuthed={handleAuthed} />
-        ) : showPreferences ? (
-          <PreferencesScreen onClose={closePreferences} />
-        ) : detailDealId != null ? (
-          <DealDetailScreen dealId={detailDealId} onBack={closeDeal} />
-        ) : (
+        <View style={overlayOpen ? styles.hiddenScreen : styles.screenArea}>
           <Active
             key={active}
             onOpenDeal={openDeal}
@@ -151,8 +195,16 @@ export default function App() {
             refreshSignal={refreshTick}
             onOpenAuth={openAuth}
             onOpenPreferences={openPreferences}
+            registerBackHandler={registerBackHandler}
           />
-        )}
+        </View>
+        {showAuth ? (
+          <AuthScreen onClose={closeAuth} onAuthed={handleAuthed} />
+        ) : showPreferences ? (
+          <PreferencesScreen onClose={closePreferences} />
+        ) : detailDealId != null ? (
+          <DealDetailScreen dealId={detailDealId} onBack={closeDeal} />
+        ) : null}
       </View>
       {/* Ekranin en altinda sabit banner reklam -- tum sekmelerde ve urun
           detayinda ortak (tek yerden yonetildigi icin her ekrana ayri ayri
@@ -194,5 +246,10 @@ const styles = StyleSheet.create({
   },
   screenArea: {
     flex: 1,
+  },
+  // Ust katman (detay/giris/tercihler) acikken sekme ekrani unmount
+  // edilmeden gizlenir; state'i korunur.
+  hiddenScreen: {
+    display: 'none',
   },
 });

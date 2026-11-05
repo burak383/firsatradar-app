@@ -276,10 +276,12 @@ export default function CategoriesScreen({
   onOpenDeal,
   onNavigateTab,
   refreshSignal,
+  registerBackHandler,
 }: {
   onOpenDeal?: (id: number) => void;
   onNavigateTab?: (key: string) => void;
   refreshSignal?: number;
+  registerBackHandler?: (handler: (() => boolean) | null) => void;
 }) {
   const { width } = useWindowDimensions();
   const tileWidth = (width - 55) / 2;
@@ -373,6 +375,21 @@ export default function CategoriesScreen({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshSignal]);
+
+  // Android geri tusu: bir kategorinin tam listesindeysek once kategori
+  // izgarasina don (uygulamadan cikma / baska sekmeye atma). App.tsx bu
+  // handler'i ust katmanlar (urun detayi vb.) kapaliyken calistirir.
+  useEffect(() => {
+    if (!registerBackHandler) return;
+    registerBackHandler(() => {
+      if (viewingCategory) {
+        setViewingCategory(null);
+        return true;
+      }
+      return false;
+    });
+    return () => registerBackHandler(null);
+  }, [registerBackHandler, viewingCategory]);
 
   const toggleFollow = useCallback(
     async (productId: number) => {

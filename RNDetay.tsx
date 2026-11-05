@@ -24,6 +24,7 @@ import { colors, fonts } from './theme';
 import {
   Alarm,
   DealDetail,
+  PriceAnalysis,
   createAlarm,
   deleteAlarm,
   formatDiscount,
@@ -86,13 +87,119 @@ function StatCard({
   );
 }
 
+// "Gercek indirim kontrolu": backend'in gozlemledigi fiyat gecmisinden
+// urettigi karar (bkz. backend/helpers.js -> computePriceAnalysis). Magaza
+// ya da Telegram kanalinin iddia ettigi "eski fiyat"a degil, GERCEKTEN
+// gordugumuz fiyatlara dayanir.
+const VERDICTS: Record<
+  PriceAnalysis['verdict'],
+  { title: string; color: string; icon: keyof typeof Ionicons.glyphMap }
+> = {
+  real_deal: { title: 'Gerçek indirim', color: colors.accent, icon: 'shield-checkmark-outline' },
+  normal: { title: 'Normal fiyat', color: colors.mutedForeground, icon: 'remove-circle-outline' },
+  above_average: { title: 'Ortalamanın üstünde', color: colors.destructive, icon: 'alert-circle-outline' },
+  insufficient: { title: 'Yeterli veri yok', color: colors.mutedForeground, icon: 'hourglass-outline' },
+};
+
+function verdictDescription(a: PriceAnalysis): string {
+  const pct = Math.abs(a.pctVsAverage ?? 0);
+  switch (a.verdict) {
+    case 'real_deal':
+      return `Bu fiyat, son ${a.windowDays} günde gözlemlediğimiz ortalama fiyatın %${pct} altında.`;
+    case 'above_average':
+      return `Bu fiyat, gözlemlediğimiz ortalama fiyatın %${pct} üstünde. Beklemek daha avantajlı olabilir.`;
+    case 'normal':
+      return 'Fiyat, gözlemlediğimiz ortalamaya yakın; belirgin bir indirim görünmüyor.';
+    default:
+      return 'Bu ürünün fiyatını henüz yeterince uzun süre izlemedik. Fiyat değiştikçe analiz burada görünecek.';
+  }
+}
+
+function PriceAnalysisPanel({
+  analysis,
+  oldPrice,
+  currency,
+}: {
+  analysis: PriceAnalysis;
+  oldPrice: number | null;
+  currency: string;
+}) {
+  const verdict = VERDICTS[analysis.verdict] || VERDICTS.insufficient;
+  const hasStats = analysis.avgPrice != null && analysis.minPrice != null && analysis.maxPrice != null;
+  return (
+    <View style={styles.panel}>
+      <View style={styles.panelHeader}>
+        <View>
+          <Text style={styles.eyebrow}>GERÇEK İNDİRİM KONTROLÜ</Text>
+          <Text style={styles.panelTitle}>Fiyat Analizi</Text>
+        </View>
+        <View style={[styles.verdictBadge, { backgroundColor: rgba(verdict.color, 0.12) }]}>
+          <Ionicons name={verdict.icon} size={14} color={verdict.color} />
+          <Text style={[styles.verdictBadgeText, { color: verdict.color }]}>{verdict.title}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.analysisText}>{verdictDescription(analysis)}</Text>
+
+      {hasStats && (
+        <View style={styles.analysisStats}>
+          <View style={styles.analysisStat}>
+            <Text style={styles.analysisStatLabel}>Ortalama</Text>
+            <Text style={styles.analysisStatValue}>
+              {formatPrice(analysis.avgPrice as number, currency)}
+            </Text>
+          </View>
+          <View style={styles.analysisStat}>
+            <Text style={styles.analysisStatLabel}>En düşük</Text>
+            <Text style={[styles.analysisStatValue, { color: colors.accent }]}>
+              {formatPrice(analysis.minPrice as number, currency)}
+            </Text>
+          </View>
+          <View style={styles.analysisStat}>
+            <Text style={styles.analysisStatLabel}>En yüksek</Text>
+            <Text style={styles.analysisStatValue}>
+              {formatPrice(analysis.maxPrice as number, currency)}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {analysis.claimedOldPriceUnverified && oldPrice != null && (
+        <View style={styles.analysisNote}>
+          <Ionicons name="information-circle-outline" size={16} color={colors.mutedForeground} />
+          <Text style={styles.analysisNoteText}>
+            {`Belirtilen eski fiyat (${formatPrice(oldPrice, currency)}) gözlemlerimizle doğrulanamadı; indirim oranı mağaza veya kanal iddiasıdır.`}
+          </Text>
+        </View>
+      )}
+
+      {analysis.verdict !== 'insufficient' && analysis.confidence === 'low' && (
+        <View style={styles.analysisNote}>
+          <Ionicons name="time-outline" size={16} color={colors.mutedForeground} />
+          <Text style={styles.analysisNoteText}>
+            {analysis.trackedDays != null && analysis.trackedDays >= 1
+              ? `Bu ürünü yalnızca ${analysis.trackedDays} gündür izliyoruz; sonuç zamanla netleşir.`
+              : 'Bu ürünü yeni izlemeye başladık; sonuç zamanla netleşir.'}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 const CHART_LEFT = 22;
 const CHART_RIGHT = 330;
 const CHART_TOP = 22;
 const CHART_BOTTOM = 132;
 const CHART_FILL_BASE = 138;
 
-function PriceChart({ history }: { history: { price: number; checkedAt: string }[] }) {
+function PriceChart({
+  history,
+  avg,
+}: {
+  history: { price: number; checkedAt: string }[];
+  avg?: number | null;
+}) {
   const points = useMemo(() => {
     if (history.length === 0) return [];
     const prices = history.map((h) => h.price);
@@ -131,11 +238,44 @@ function PriceChart({ history }: { history: { price: number; checkedAt: string }
   const last = points[points.length - 1];
   const labelX = Math.min(Math.max(lowest.x, CHART_LEFT + 30), CHART_RIGHT - 30);
 
+  // Gozlemlenen ortalama fiyat cizgisi (backend priceAnalysis.avgPrice) --
+  // ayni min/max olcegiyle, sadece grafigin gorunen araligina dusuyorsa.
+  const chartPrices = points.map((p) => p.price);
+  const chartMin = Math.min(...chartPrices);
+  const chartMax = Math.max(...chartPrices);
+  const avgY =
+    avg != null && chartMax > chartMin && avg >= chartMin && avg <= chartMax
+      ? CHART_TOP + ((chartMax - avg) / (chartMax - chartMin)) * (CHART_BOTTOM - CHART_TOP)
+      : null;
+
   return (
     <Svg width="100%" height={170} viewBox="0 0 340 150">
       {[22, 58, 94, 130].map((y) => (
         <Line key={y} x1="22" y1={y} x2="330" y2={y} stroke={colors.muted} strokeWidth="1" />
       ))}
+      {avgY != null && (
+        <>
+          <Line
+            x1={CHART_LEFT}
+            y1={avgY}
+            x2={CHART_RIGHT}
+            y2={avgY}
+            stroke={colors.mutedForeground}
+            strokeWidth="1.5"
+            strokeDasharray="2 5"
+          />
+          <SvgText
+            x={CHART_RIGHT}
+            y={avgY - 5}
+            fill={colors.mutedForeground}
+            fontSize="9"
+            fontFamily={fonts.body}
+            textAnchor="end"
+          >
+            {`ort. ${formatPrice(avg as number)}`}
+          </SvgText>
+        </>
+      )}
       <Path d={areaPath} fill={rgba(colors.chart1, 0.1)} />
       <Path
         d={linePath}
@@ -374,6 +514,16 @@ export default function DealDetailScreen({
           </View>
         </View>
 
+        {deal.priceAnalysis && (
+          <View style={styles.section}>
+            <PriceAnalysisPanel
+              analysis={deal.priceAnalysis}
+              oldPrice={deal.oldPrice}
+              currency={deal.currency}
+            />
+          </View>
+        )}
+
         <View style={styles.section}>
           <View style={styles.panel}>
             <View style={styles.panelHeader}>
@@ -394,7 +544,7 @@ export default function DealDetailScreen({
               )}
               <Text style={styles.chartLabel}>{formatPrice(deal.currentPrice, deal.currency)}</Text>
             </View>
-            <PriceChart history={deal.priceHistory} />
+            <PriceChart history={deal.priceHistory} avg={deal.priceAnalysis?.avgPrice} />
             <View style={styles.legend}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
@@ -404,6 +554,12 @@ export default function DealDetailScreen({
                 <View style={[styles.legendDot, { backgroundColor: colors.accent }]} />
                 <Text style={styles.legendText}>En düşük nokta işaretli</Text>
               </View>
+              {deal.priceAnalysis?.avgPrice != null && (
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.mutedForeground }]} />
+                  <Text style={styles.legendText}>Ortalama</Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -783,6 +939,58 @@ const styles = StyleSheet.create({
     fontFamily: fonts.heading,
     fontSize: 18,
     fontWeight: '700',
+  },
+  verdictBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  verdictBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  analysisText: {
+    marginTop: 14,
+    color: colors.cardForeground,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  analysisStats: {
+    marginTop: 14,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  analysisStat: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: colors.secondary,
+  },
+  analysisStatLabel: {
+    color: colors.mutedForeground,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  analysisStatValue: {
+    marginTop: 4,
+    color: colors.foreground,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  analysisNote: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  analysisNoteText: {
+    flex: 1,
+    color: colors.mutedForeground,
+    fontSize: 11,
+    lineHeight: 16,
   },
   lowestBadge: {
     paddingHorizontal: 8,
