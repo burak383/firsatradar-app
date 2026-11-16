@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Linking,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleProp,
+  Share,
   StyleSheet,
   Switch,
   Text,
@@ -29,6 +32,10 @@ import {
 
 const colors = theme.colors;
 const fonts = theme.fonts;
+
+const ANDROID_PACKAGE = 'com.firsatradar.app';
+const PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`;
+const APP_STORE_URL = 'https://apps.apple.com/app/id6816376332';
 
 const STORE_META: Record<string, { label: string; letter: string; color: string }> = {
   amazon: { label: 'Amazon', letter: 'a', color: colors.foreground },
@@ -123,12 +130,14 @@ export default function ProfileScreen({
   refreshSignal,
   onOpenAuth,
   onOpenPreferences,
+  onShowTour,
 }: {
   onOpenDeal?: (id: number) => void;
   onNavigateTab?: (key: string) => void;
   refreshSignal?: number;
   onOpenAuth?: () => void;
   onOpenPreferences?: () => void;
+  onShowTour?: () => void;
 } = {}) {
   const [trackedCount, setTrackedCount] = useState<number | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -207,6 +216,31 @@ export default function ProfileScreen({
       ]
     );
   }, [user, deleting, load]);
+
+  // "Uygulamayı paylaş": sistemin paylasim penceresini acar (WhatsApp, mesaj
+  // vb.). Magaza baglantisi platforma gore degisir.
+  const handleSharePress = useCallback(async () => {
+    const link = Platform.OS === 'ios' ? APP_STORE_URL : PLAY_STORE_URL;
+    try {
+      await Share.share({
+        message:
+          'FırsatRadar ile mağazalardaki indirimleri tek yerden takip ediyorum; ' +
+          `fiyat geçmişine bakıp indirimin gerçek olup olmadığını görebiliyorsun: ${link}`,
+      });
+    } catch {
+      // kullanici pencereyi kapatti ya da paylasim kullanilamiyor; sessizce vazgec
+    }
+  }, []);
+
+  // "Uygulamayı puanla": Play Store'daki uygulama sayfasini acar. iOS'ta
+  // uygulama App Store'da yayinlanana kadar gosterilmiyor (bkz. asagidaki render).
+  const handleRatePress = useCallback(async () => {
+    try {
+      await Linking.openURL(`market://details?id=${ANDROID_PACKAGE}`);
+    } catch {
+      Linking.openURL(PLAY_STORE_URL).catch(() => {});
+    }
+  }, []);
 
   const handleEditProfilePress = useCallback(() => {
     if (user) {
@@ -452,6 +486,38 @@ export default function ProfileScreen({
                   </Pressable>
                 </View>
               </View>
+            </View>
+
+            <View style={styles.appActions}>
+              <Pressable
+                style={styles.appActionButton}
+                onPress={() => onShowTour?.()}
+                accessibilityRole="button"
+                accessibilityLabel="Uygulama turunu göster"
+              >
+                <Icon name="map-marker-path" size={18} color={colors.mutedForeground} />
+                <Text style={styles.appActionText}>Uygulama turunu göster</Text>
+              </Pressable>
+              {Platform.OS === 'android' ? (
+                <Pressable
+                  style={styles.appActionButton}
+                  onPress={handleRatePress}
+                  accessibilityRole="button"
+                  accessibilityLabel="Uygulamayı puanla"
+                >
+                  <Icon name="star-outline" size={18} color={colors.mutedForeground} />
+                  <Text style={styles.appActionText}>Uygulamayı puanla</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                style={styles.appActionButton}
+                onPress={handleSharePress}
+                accessibilityRole="button"
+                accessibilityLabel="Uygulamayı paylaş"
+              >
+                <Icon name="share-variant-outline" size={18} color={colors.mutedForeground} />
+                <Text style={styles.appActionText}>Uygulamayı paylaş</Text>
+              </Pressable>
             </View>
 
             <Pressable style={styles.logoutButton} onPress={handleAuthPress}>
@@ -955,6 +1021,24 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
     fontFamily: fonts.body,
     fontSize: 12,
+    fontWeight: '600',
+  },
+  appActions: { marginTop: 20, gap: 10 },
+  appActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+  },
+  appActionText: {
+    color: colors.foreground,
+    fontFamily: fonts.body,
+    fontSize: 14,
     fontWeight: '600',
   },
   logoutButton: {

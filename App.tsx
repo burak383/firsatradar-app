@@ -10,6 +10,7 @@ import DealComparisonScreen from './Arama';
 import DealDetailScreen from './RNDetay';
 import AuthScreen from './Giris';
 import PreferencesScreen from './Tercihler';
+import Onboarding, { hasSeenOnboarding } from './Onboarding';
 import { AdBanner, initAds, useInterstitialAd } from './ads';
 import { initNotifications, useNotificationTapListener } from './notifications';
 
@@ -55,17 +56,18 @@ export default function App() {
   // alani/Bildirim tuslarina dokunulunca dolar -- Giris ile ayni "ust
   // katman" mantigiyla gosterilir (bkz. asagidaki render).
   const [showPreferences, setShowPreferences] = useState(false);
+  // Ilk acilista gosterilen uygulama turu (bkz. Onboarding.tsx); Profil'deki
+  // "Uygulama turunu göster" ile de acilabilir.
+  const [showTour, setShowTour] = useState(false);
   // Urun detayina gecis (interstitial) reklami -- her acilista degil,
-  // belirli araliklarla gosterilir (bkz. ads.tsx). Web'de ads.web.tsx'in
+  // her 3 urun detayinda bir gosterilir (bkz. ads.tsx). Web'de ads.web.tsx'in
   // no-op suru kullanilir, hicbir sey gostermez.
-  // GECICI TANI DEGISIKLIGI: reklamin hic cikmadigi bildirildigi icin test
-  // kolayligi amaciyla "her 3 urunde bir" yerine "her urunde" gostermeye
-  // ceviriyoruz -- boylece sayaç mi yoksa AdMob'un kendisi mi (no-fill)
-  // sorunlu net anlasilir. Test edip sonuc netlesince production icin
-  // tekrar 3'e (ya da istenen baska bir degere) dondurulmeli.
-  const { maybeShow: maybeShowInterstitial } = useInterstitialAd(1);
+  const { maybeShow: maybeShowInterstitial } = useInterstitialAd(3);
 
   useEffect(() => {
+    hasSeenOnboarding().then((seen) => {
+      if (!seen) setShowTour(true);
+    });
     initAds();
     initNotifications();
     const interval = setInterval(() => {
@@ -91,6 +93,8 @@ export default function App() {
   }, []);
   useNotificationTapListener(handleNotificationTap);
   const closeDeal = () => setDetailDealId(null);
+  const openTour = () => setShowTour(true);
+  const closeTour = () => setShowTour(false);
   const openAuth = () => setShowAuth(true);
   const closeAuth = () => setShowAuth(false);
   const handleAuthed = () => {
@@ -139,6 +143,10 @@ export default function App() {
   // uygulamadan cik (false donunce sistem varsayilani calisir).
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (showTour) {
+        setShowTour(false);
+        return true;
+      }
       if (showAuth) {
         setShowAuth(false);
         return true;
@@ -160,7 +168,7 @@ export default function App() {
     });
     return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAuth, showPreferences, detailDealId, active]);
+  }, [showTour, showAuth, showPreferences, detailDealId, active]);
 
   return (
     <View style={styles.root}>
@@ -195,6 +203,7 @@ export default function App() {
             refreshSignal={refreshTick}
             onOpenAuth={openAuth}
             onOpenPreferences={openPreferences}
+            onShowTour={openTour}
             registerBackHandler={registerBackHandler}
           />
         </View>
@@ -210,6 +219,7 @@ export default function App() {
           detayinda ortak (tek yerden yonetildigi icin her ekrana ayri ayri
           eklemek gerekmiyor). Web'de hicbir sey render etmez. */}
       <AdBanner />
+      {showTour ? <Onboarding onClose={closeTour} /> : null}
     </View>
   );
 }
