@@ -272,12 +272,16 @@ export function getDeals(params?: {
   store?: string;
   sort?: 'discount' | 'price-asc' | 'price-desc' | 'newest' | 'followers';
   limit?: number;
+  // true: sadece yeni urunlerden, saatte bir donen secki (KeFet "One cikanlar"
+  // altindaki kucuk kartlar icin; sort 'discount' iken gecerli).
+  fresh?: boolean;
 }): Promise<{ deals: Deal[]; totalScanned: number }> {
   const qs = new URLSearchParams();
   if (params?.category) qs.set('category', params.category);
   if (params?.store) qs.set('store', params.store);
   if (params?.sort) qs.set('sort', params.sort);
   if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.fresh) qs.set('fresh', '1');
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   return request(`/deals${suffix}`);
 }

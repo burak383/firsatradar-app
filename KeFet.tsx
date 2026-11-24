@@ -29,6 +29,7 @@ import {
 } from './api';
 import { AdBanner } from './ads';
 import { SortSheet } from './SortSheet';
+import PriceDisclaimer from './PriceDisclaimer';
 
 const FEATURED_SORT_OPTIONS = [
   { value: 'discount', label: 'En büyük indirim' },
@@ -173,7 +174,13 @@ export default function FirsatRadarScreen({
       const [flash, featured, list, food, latest, alarmsRes] = await Promise.all([
         getFlashDeal(),
         getFeaturedDeal(),
-        getDeals({ sort: featuredSort, limit: 6, store: activeStore ?? undefined }),
+        getDeals({
+          sort: featuredSort as any,
+          limit: 6,
+          store: activeStore ?? undefined,
+          // Varsayilan "indirim" sirasinda kartlar saatte bir yeni urunlerle doner.
+          fresh: featuredSort === 'discount',
+        }),
         getDeals({ category: 'yemek', limit: 1 }),
         // "discount" sirasi Telegram'dan yeni gelen urunleri gosterMEZ --
         // yeni urunlerin ilk eklendigi anda old_price/discount'u henuz
@@ -548,6 +555,7 @@ export default function FirsatRadarScreen({
               </>
             )}
           </View>
+          <PriceDisclaimer />
         </ScrollView>
 
         <View style={styles.bottomBar}>

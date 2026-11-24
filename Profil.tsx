@@ -17,6 +17,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import theme from './theme';
+import PriceDisclaimer from './PriceDisclaimer';
 import {
   AuthUser,
   Category,
@@ -487,6 +488,8 @@ export default function ProfileScreen({
                 </View>
               </View>
             </View>
+
+            <PriceDisclaimer compact />
 
             <View style={styles.appActions}>
               <Pressable

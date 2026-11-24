@@ -21,6 +21,7 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 import { colors, fonts } from './theme';
+import PriceDisclaimer from './PriceDisclaimer';
 import {
   Alarm,
   DealDetail,
@@ -648,6 +649,7 @@ export default function DealDetailScreen({
             </View>
           </Pressable>
         </View>
+        <PriceDisclaimer />
       </ScrollView>
 
       <View style={styles.bottomBar}>

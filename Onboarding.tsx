@@ -45,7 +45,8 @@ const STEPS: Step[] = [
     title: 'İndirim gerçek mi?',
     body:
       'Ürün detayında güncel fiyatın, geçmiş fiyat ortalamasına göre nasıl durduğunu görürsün. ' +
-      'Fiyat grafiğindeki kesikli çizgi ortalamayı gösterir.',
+      'Fiyat grafiğindeki kesikli çizgi ortalamayı gösterir. ' +
+      'Fiyatlar otomatik toplandığı için hatalı olabilir; almadan önce mağazada kontrol et.',
   },
   {
     icon: 'bell',
