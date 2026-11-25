@@ -9,3 +9,9 @@ web-build/
 # reposunda) -- icinde yerel test veritabani (backend/data/*.db) var,
 # yanlislikla commit'lenmesin diye tamamen disarida tutuluyor.
 backend/
+
+# `expo prebuild` ciktisi (CNG): her build'de app.json + config plugin'lerden
+# yeniden uretilir. SDK 52'den kalan eski android/ klasoru EAS'in yeni (SDK 53)
+# sablonu kullanmasini engeller -- bu yuzden repoya alinmaz.
+/android/
+/ios/

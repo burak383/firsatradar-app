@@ -29,6 +29,9 @@ import { registerPushToken } from './api';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    // expo-notifications 0.31+ (SDK 53): shouldShowAlert eski; yeni alanlar:
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
