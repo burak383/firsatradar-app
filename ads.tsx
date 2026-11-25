@@ -37,12 +37,12 @@ export const USE_TEST_ADS = false;
 // pickAdUnitId() otomatik olarak test ID'sine duser.
 const REAL_AD_UNIT_IDS = {
   banner: Platform.select({
-    android: 'ca-app-pub-9017194698663463/9286555930',
+    android: 'ca-app-pub-9017194698663463/9189323715',
     ios: 'ca-app-pub-9017194698663463/2509394596',
     default: '',
   })!,
   interstitial: Platform.select({
-    android: 'ca-app-pub-9017194698663463/1724680551',
+    android: 'ca-app-pub-9017194698663463/8108050027',
     ios: 'ca-app-pub-9017194698663463/3995709961',
     default: '',
   })!,
