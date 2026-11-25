@@ -42,7 +42,7 @@
     ],
     "android": {
       "package": "com.firsatradar.app",
-      "versionCode": 13,
+      "versionCode": 16,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
