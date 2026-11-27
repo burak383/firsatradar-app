@@ -171,6 +171,7 @@ export default function App() {
   }, [showTour, showAuth, showPreferences, detailDealId, active]);
 
   return (
+    <View style={styles.outer}>
     <View style={styles.root}>
       <StatusBar style="light" />
       <SafeAreaView style={styles.switcherBar}>
@@ -221,12 +222,22 @@ export default function App() {
       <AdBanner />
       {showTour ? <Onboarding onClose={closeTour} /> : null}
     </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // iPad/tablet: icerik cok genislemesin diye ortalanmis, azami genislikli
+  // bir sutun. Telefonlarda (<720 dp) hicbir etkisi yok.
+  outer: {
+    flex: 1,
+    backgroundColor: '#000',
+    alignItems: 'center',
+  },
   root: {
     flex: 1,
+    width: '100%',
+    maxWidth: 720,
     backgroundColor: '#000',
   },
   switcherBar: {

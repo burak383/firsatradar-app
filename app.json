@@ -51,6 +51,8 @@
     },
     "ios": {
       "bundleIdentifier": "com.firsatradar.app",
+      "supportsTablet": true,
+      "requireFullScreen": true,
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
